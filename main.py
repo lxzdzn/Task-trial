@@ -1,6 +1,7 @@
 # imports
 import json
 import sqlite3
+from datetime import datetime
 
 from mixpanel_api import Mixpanel
 import os.path
@@ -13,9 +14,10 @@ MIXPANEL_CONFIG = {
     'format': 'json',
     'params': {
         'from_date': '2020-01-01',
-        'to_date': '2020-09-30'
+        'to_date': datetime.today().strftime('%Y-%m-%d')
     }
 }
+
 
 class TaskTrial:
     '''
@@ -23,8 +25,8 @@ class TaskTrial:
     interface of the script.
     '''
     conn = None  # sqlite3 connection
-    data = None  # contents of csv
-    m = None     # Mixpanel instance
+    data = None  # contents of json
+    m = None  # Mixpanel instance
 
     def __init__(self):
         print('Context: __init__(self)')
@@ -34,17 +36,9 @@ class TaskTrial:
         self.m = Mixpanel(api_secret=MIXPANEL_CONFIG['secret'], token=MIXPANEL_CONFIG['token'])
         print('\tInstantiation successful.')
 
-        print('\tDoes events.csv file exist?', end=' ')
-        if not os.path.isfile(MIXPANEL_CONFIG['out']):
-            print('Y')
-            print('\tFile events.csv does not exist... Retrieving events from Mixpanel.')
-            self.export_events(MIXPANEL_CONFIG)
-            print('\tEvents successfully exported. Loading file...')
-        else:
-            print('N')
-            print('\tFile events.csv already exists. Loading file.')
+        self.export_events(MIXPANEL_CONFIG)
 
-        self.data = self.load_csv()
+        self.data = self.load_json()
 
         print('\tEstablishing connection.')
         self.conn = self.create_connection('lxf_trial_task.db')
@@ -164,11 +158,6 @@ class TaskTrial:
         '''
         print('Context: insert_data(self)')
 
-        # cache to prevent re-writing to db
-        utils = {
-            'i': [1]
-        }
-
         # i is for keeping track how many records have been
         # written to the database
         for i, col in enumerate(data):
@@ -176,15 +165,13 @@ class TaskTrial:
             placeholders = placeholders[:-1]
             values = []
 
-            print(f'\t{i} of {len(data)}')
+            print(f'\t{i+1} of {len(data)}')
 
             sql = f'''INSERT INTO events ({', '.join(list(col.keys()))}) VALUES ({placeholders})'''
 
             cur = conn.cursor()
             cur.execute(sql, list(col.values()))
             conn.commit()
-
-        return utils
 
 
 TaskTrial()
